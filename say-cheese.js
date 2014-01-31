@@ -12,7 +12,7 @@
  * on anything but the newest browsers.
  */
 
-var SayCheese = (function($) {
+var SayCheese = (function() {
 
   var SayCheese;
 
@@ -21,6 +21,9 @@ var SayCheese = (function($) {
                             navigator.mozGetUserMedia ||
                             navigator.msGetUserMedia ||
                             false);
+
+  window.AudioContext = (window.AudioContext ||
+                         window.webkitAudioContext);
 
   window.URL = (window.URL ||
                 window.webkitURL);
@@ -31,33 +34,46 @@ var SayCheese = (function($) {
     this.events = {},
     this.stream = null,
     this.options = {
-      snapshots: true
+      snapshots: true,
+      audio: false
     };
 
     this.setOptions(options);
-    this.element = document.querySelectorAll(element)[0];
-    this.element.style.position = 'relative';
-
+    this.element = document.querySelector(element);
     return this;
   };
 
-  // todo: remove jquery dependency
   SayCheese.prototype.on = function on(evt, handler) {
-    return $(this).on(evt, handler);
+    if (this.events.hasOwnProperty(evt) === false) {
+      this.events[evt] = [];
+    }
+
+    this.events[evt].push(handler)
   };
 
   SayCheese.prototype.off = function off(evt, handler) {
-    return $(this).off(evt, handler);
+    this.events = this.events[evt].filter(function(h) {
+      if (h !== handler) {
+        return h;
+      }
+    });
   };
 
   SayCheese.prototype.trigger = function trigger(evt, data) {
-    // bubbling up the DOM makes things go a bit crazy. This assumes
-    // preventDefault
-    return $(this).triggerHandler(evt, data);
+    if (this.events.hasOwnProperty(evt) === false) {
+      return false;
+    }
+
+    this.events[evt].forEach(function(handler) {
+      handler.call(this, data);
+    }.bind(this));
   };
 
   SayCheese.prototype.setOptions = function setOptions(options) {
-    this.options = $.extend(this.options, options);
+    // just use naïve, shallow cloning
+    for (var opt in options) {
+      this.options[opt] = options[opt];
+    }
   }
 
   SayCheese.prototype.getStreamUrl = function getStreamUrl() {
@@ -75,32 +91,42 @@ var SayCheese = (function($) {
 
     this.video = document.createElement('video');
 
-    this.video.addEventListener('loadedmetadata', function() {
-      return this.trigger('start');
-    }.bind(this), false);
-
     this.video.addEventListener('canplay', function() {
       if (!streaming) {
         height = this.video.videoHeight / (this.video.videoWidth / width);
         this.video.style.width = width;
         this.video.style.height = height;
         streaming = true;
+        return this.trigger('start');
       }
     }.bind(this), false);
   };
 
-  SayCheese.prototype.takeSnapshot = function takeSnapshot() {
+  SayCheese.prototype.linkAudio = function linkAudio() {
+    this.audioCtx = new window.AudioContext();
+    this.audioStream = this.audioCtx.createMediaStreamSource(this.stream);
+
+    var biquadFilter = this.audioCtx.createBiquadFilter();
+
+    this.audioStream.connect(biquadFilter);
+    biquadFilter.connect(this.audioCtx.destination);
+  };
+
+  SayCheese.prototype.takeSnapshot = function takeSnapshot(width, height) {
     if (this.options.snapshots === false) {
       return false;
     }
 
+    width  = width || this.video.videoWidth;
+    height = height || this.video.videoHeight;
+
     var snapshot = document.createElement('canvas'),
         ctx      = snapshot.getContext('2d');
 
-    snapshot.width  = this.video.videoWidth;
-    snapshot.height = this.video.videoHeight;
+    snapshot.width  = width;
+    snapshot.height = height;
 
-    ctx.drawImage(this.video, 0, 0);
+    ctx.drawImage(this.video, 0, 0, width, height);
 
     this.snapshots.push(snapshot);
     this.trigger('snapshot', snapshot);
@@ -127,6 +153,14 @@ var SayCheese = (function($) {
         this.video.src = this.getStreamUrl();
       }
 
+      if (this.options.audio === true) {
+        try {
+          this.linkAudio();
+        } catch(e) {
+          this.trigger('error', 'AUDIO_NOT_SUPPORTED');
+        }
+      }
+
       this.element.appendChild(this.video);
       this.video.play();
     }.bind(this);
@@ -136,7 +170,7 @@ var SayCheese = (function($) {
       this.trigger('error', error);
     }.bind(this);
 
-    return navigator.getUserMedia({ video: true, audio: false }, success, error);
+    return navigator.getUserMedia({ video: true, audio: this.options.audio }, success, error);
   };
 
   SayCheese.prototype.stop = function stop() {
@@ -151,4 +185,4 @@ var SayCheese = (function($) {
 
   return SayCheese;
 
-})(jQuery);
+})();

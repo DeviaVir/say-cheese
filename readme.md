@@ -1,6 +1,9 @@
 Say Cheese!
 ===========
-A minimal library for integrating webcam snapshots into your app.
+A minimal library for integrating webcam snapshots into your app. It uses `getUserMedia`, a recent API for
+accessing audio and video in the browser.
+
+[**Demo**](http://leemachin.github.com/say-cheese)
 
 Setup
 -----
@@ -10,27 +13,25 @@ Grab the JS, host it, and add it to your page. For example:
 <script src='/assets/js/say-cheese.js'></script>
 ```
 
-It also requires jQuery (for events), so make sure to include that before this.
-
 Usage
 -----
 
 Say Cheese exposes a minimal, event based API:
 
 ```javascript
-var sayCheese = new SayCheese('#element', { snapshots: true });
+var sayCheese = new SayCheese('#container-element', { snapshots: true });
 
 sayCheese.on('start', function() {
  // do something when started
  this.takeSnapshot();
 });
 
-sayCheese.on('error', function(evt, error) {
+sayCheese.on('error', function(error) {
  // handle errors, such as when a user denies the request to use the webcam,
  // or when the getUserMedia API isn't supported
 });
 
-sayCheese.on('snapshot', function(evt, snapshot) {
+sayCheese.on('snapshot', function(snapshot) {
   // do something with a snapshot canvas element, when taken
 });
 
@@ -44,12 +45,21 @@ You can take a snapshot at any time after initialisation, by calling
 `takeSnapshot()`:
 
 ```javascript
-sayCheese.on('snapshot', function(evt, snapshot) {
+sayCheese.on('snapshot', function(snapshot) {
   // do something with the snapshot
 });
 
 sayCheese.takeSnapshot();
 ```
+
+If you need to change the size of the snapshot created, pass in the new width and height as arguments:
+
+```javascript
+var width = 640, height = 480;
+sayCheese.takeSnapshot(width, height);
+```
+
+It defaults to the full size of the video (generally `640x480`) if the arguments are omitted.
 
 I don't want snapshots; just give me the video!
 -----------------------------------------------
@@ -68,12 +78,41 @@ Stopping the show
 There's also a function to stop the webcam after loading it up:
 
 ```javascript
-sayCheese.on('stop', function(evt) {
+sayCheese.on('stop', function() {
   // do something when it's stopped
 });
 
 sayCheese.stop();
 ```
+
+Audio support
+-------------
+
+Audio's disabled by default, because it doesn't have full browser support. You can still enable it
+for browsers that do support it, though. Just set `audio` to true when setting up.
+
+```javascript
+var sayCheese = new SayCheese('#container-element', { audio: true });
+```
+
+This will request access to the microphone, and will currently pipe the audio through to your
+output device.
+
+This is supported in:
+
+- Google Chrome
+- Firefox 25+
+- Latest Opera
+
+Resources, things using Say Cheese, etc.
+----------------------------------------
+
+[getUserMedia on the server, with Sinatra and Say Cheese](http://blog.new-bamboo.co.uk/2012/11/23/getusermedia-on-the-server-with-sinatra-and-say-cheese)
+
+If you have any useful resources, or things you did with Say Cheese
+that you think should be shown off, by all means open a pull request
+or an issue or whatever.
+
 
 Tests
 -----
@@ -88,27 +127,9 @@ Compatibility
 
 **Tested and verified to work in:**
 
-- Firefox Nightly and Aurora *§
+- Firefox
 - Google Chrome
 - Opera
-
-\* The webcam functionality itself works in stable Firefox, however a [bug in
-the browser](https://bugzilla.mozilla.org/show_bug.cgi?id=771833)
-prevents the snapshot feature from working correctly. The fix is now in the Beta
-channel.
-
-§ Firefox on the stable channel also only supports a smaller webcam resolution, though
-this has been upped to 640x480 in Aurora and Nightly, to match Chrome and Opera.
-
-#### Firefox caveats
-
-- A [bug](https://bugzilla.mozilla.org/show_bug.cgi?id=771833) in the Firefox stable 
-  channel prevents the snapshot function from behaving correctly. This has been fixed
-  upstream and, as of 21st November 2012, is now in the Beta channel.
-
-- The stable release of Firefox also supports a lower resolution compared to Opera and Chrome.
-  This has been improved in Aurora and Nightly and may hopefully work its way into stable
-  in the next version or two.
 
 License
 -------
